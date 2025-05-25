@@ -1,0 +1,40 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float4> positionBuffer; // xyz = pos, w = rotation angle (radians)
+RWStructuredBuffer<float3> growDirBuffer;  // normalized direction
+
+[numthreads(8,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.x;
+
+    float2 basePos = float2(index % 512, index / 512) * 0.1;
+
+    // 加入位置扰动
+    float2 jitter = float2(
+        frac(sin(dot(basePos, float2(127.1, 311.7))) * 43758.5453),
+        frac(sin(dot(basePos, float2(269.5, 183.3))) * 96193.2179)
+    ) - 0.5;
+
+    jitter *= 0.1;
+    float2 worldPos = basePos + jitter;
+
+    // 草高（仍然保持不动）
+    float height = frac(sin(dot(worldPos, float2(12.9898, 78.233))) * 43758.5453);
+
+    // 随机旋转角度（范围 -π ~ π）
+    float angle = frac(sin(dot(worldPos, float2(34.3, 91.7))) * 12345.6789) * 6.2831853 - 3.1415926;
+
+    // 随机生长方向（倾斜方向）：略带上下偏移 + xz扰动
+    float2 dir2D = normalize(float2(
+        frac(sin(dot(worldPos, float2(83.1, 11.9))) * 9182.37) - 0.5,
+        frac(sin(dot(worldPos, float2(17.1, 47.2))) * 4267.92) - 0.5
+    ));
+
+    float yTilt = 0.9 + frac(sin(dot(worldPos, float2(11.1, 22.2))) * 4375.321) * 0.1;
+    float3 growDir = normalize(float3(dir2D.x, yTilt, dir2D.y));
+
+    // 写入缓冲
+    positionBuffer[index] = float4(worldPos.x, 0, worldPos.y, angle);
+    growDirBuffer[index] = growDir;
+}
